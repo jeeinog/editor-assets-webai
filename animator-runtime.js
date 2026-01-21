@@ -1,5 +1,5 @@
 /**
- * Animator Runtime V3.0 (Copia esto en GitHub)
+ * Animator Runtime V3.0 (Fixed Cleaning & Logic)
  */
 (function () {
   window.MagicAnimator = class MagicAnimator {
@@ -8,6 +8,7 @@
     }
 
     init() {
+      // Buscar elementos
       document
         .querySelectorAll("[data-anim-config]")
         .forEach((el) => this.setup(el));
@@ -19,17 +20,25 @@
         if (!configStr) return;
         const config = JSON.parse(configStr);
 
-        // 1. LIMPIEZA: Borrar canvas viejos para que el efecto cambie
-        const oldCanvas = el.parentNode.querySelector(`.anim-canvas-layer`);
-        if (oldCanvas && el.tagName === "IMG") oldCanvas.remove();
+        // --- CORRECCIÓN CRÍTICA DE LIMPIEZA ---
+        // 1. Borrar cualquier canvas que esté dentro del elemento (Caso DIV/Fondo)
         const innerCanvas = el.querySelector(
           ":scope > canvas.anim-canvas-layer"
         );
         if (innerCanvas) innerCanvas.remove();
 
+        // 2. Borrar cualquier canvas que esté en el wrapper (Caso IMG)
+        if (el.parentNode && el.parentNode.classList.contains("anim-wrapper")) {
+          const wrapperCanvas = el.parentNode.querySelector(
+            "canvas.anim-canvas-layer"
+          );
+          if (wrapperCanvas) wrapperCanvas.remove();
+        }
+        // -------------------------------------
+
         let canvas;
 
-        // 2. CREACIÓN DEL CANVAS
+        // CREACIÓN
         if (el.tagName === "IMG") {
           let wrapper = el.parentElement;
           if (!wrapper.classList.contains("anim-wrapper")) {
@@ -52,9 +61,9 @@
           el.insertBefore(canvas, el.firstChild);
         }
 
-        // 3. INICIAR LOOP CON EL EFECTO CORRECTO
-        // Convertimos a minúsculas para evitar errores tipo "Rain" vs "rain"
+        // Normalizar nombre del efecto (evita errores de mayúsculas)
         config.effect = (config.effect || "").toLowerCase();
+
         this.startLoop(canvas, config, el);
 
         new ResizeObserver(() => {
@@ -68,6 +77,7 @@
 
     createCanvas() {
       const c = document.createElement("canvas");
+      // Usamos una clase consistente para poder encontrarlo y borrarlo luego
       c.className = "anim-canvas-layer";
       c.style.position = "absolute";
       c.style.top = "0";
@@ -113,6 +123,8 @@
     createParticle(canvas, effect, speed) {
       const w = canvas.width;
       const h = canvas.height;
+      const getColor = (s, l) => `hsl(${this.baseHue}, ${s}%, ${l}%)`;
+
       let p = {
         life: 100,
         maxLife: 100,
@@ -121,9 +133,6 @@
         y: Math.random() * h,
       };
 
-      const getColor = (s, l) => `hsl(${this.baseHue}, ${s}%, ${l}%)`;
-
-      // LÓGICA DE EFECTOS
       switch (effect) {
         case "snow":
           p.y = -10;
@@ -154,9 +163,10 @@
           p.size = Math.random() * 10 + 5;
           p.color = `hsla(${this.baseHue}, 70%, 70%, 0.3)`;
           break;
-        default: // Fallback para corazones, confetti, etc si no están definidos
+        default:
+          // Efecto visual por defecto si falla el nombre
           p.speedY = speed;
-          p.size = 5;
+          p.size = 3;
           p.color = getColor(100, 50);
       }
       return p;
