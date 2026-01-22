@@ -1,5 +1,6 @@
 /**
- * Animator Runtime V3.0 (Fixed Cleaning & Logic)
+ * Animator Runtime V4.0 (ALL EFFECTS INCLUDED)
+ * https://github.com/jeeinog/editor-assets-webai/blob/main/animator-runtime.js
  */
 (function () {
   window.MagicAnimator = class MagicAnimator {
@@ -8,7 +9,6 @@
     }
 
     init() {
-      // Buscar elementos
       document
         .querySelectorAll("[data-anim-config]")
         .forEach((el) => this.setup(el));
@@ -20,25 +20,16 @@
         if (!configStr) return;
         const config = JSON.parse(configStr);
 
-        // --- CORRECCIÓN CRÍTICA DE LIMPIEZA ---
-        // 1. Borrar cualquier canvas que esté dentro del elemento (Caso DIV/Fondo)
+        // LIMPIEZA AGRESIVA
+        const oldCanvas = el.parentNode.querySelector(`.anim-canvas-layer`);
+        if (oldCanvas && el.tagName === "IMG") oldCanvas.remove();
         const innerCanvas = el.querySelector(
           ":scope > canvas.anim-canvas-layer"
         );
         if (innerCanvas) innerCanvas.remove();
 
-        // 2. Borrar cualquier canvas que esté en el wrapper (Caso IMG)
-        if (el.parentNode && el.parentNode.classList.contains("anim-wrapper")) {
-          const wrapperCanvas = el.parentNode.querySelector(
-            "canvas.anim-canvas-layer"
-          );
-          if (wrapperCanvas) wrapperCanvas.remove();
-        }
-        // -------------------------------------
-
         let canvas;
 
-        // CREACIÓN
         if (el.tagName === "IMG") {
           let wrapper = el.parentElement;
           if (!wrapper.classList.contains("anim-wrapper")) {
@@ -61,9 +52,7 @@
           el.insertBefore(canvas, el.firstChild);
         }
 
-        // Normalizar nombre del efecto (evita errores de mayúsculas)
         config.effect = (config.effect || "").toLowerCase();
-
         this.startLoop(canvas, config, el);
 
         new ResizeObserver(() => {
@@ -77,7 +66,6 @@
 
     createCanvas() {
       const c = document.createElement("canvas");
-      // Usamos una clase consistente para poder encontrarlo y borrarlo luego
       c.className = "anim-canvas-layer";
       c.style.position = "absolute";
       c.style.top = "0";
@@ -92,7 +80,7 @@
     startLoop(canvas, config, el) {
       const ctx = canvas.getContext("2d");
       let particles = [];
-      const count = config.intensity || 50;
+      const count = config.intensity || 60;
       const speed = (config.speed || 50) / 10;
       this.baseHue = config.color || 180;
 
@@ -120,6 +108,7 @@
       animate();
     }
 
+    // --- FÍSICA Y LÓGICA COMPLETA ---
     createParticle(canvas, effect, speed) {
       const w = canvas.width;
       const h = canvas.height;
@@ -163,8 +152,72 @@
           p.size = Math.random() * 10 + 5;
           p.color = `hsla(${this.baseHue}, 70%, 70%, 0.3)`;
           break;
-        default:
-          // Efecto visual por defecto si falla el nombre
+        case "leaves": // NUEVO
+          p.y = -10;
+          p.speedY = (Math.random() * 2 + 1) * speed;
+          p.speedX = (Math.random() - 0.5) * 2 * speed;
+          p.size = Math.random() * 10 + 5;
+          p.color = `hsl(${30 + Math.random() * 40}, 70%, 40%)`; // Otoño
+          p.rotation = Math.random() * 360;
+          break;
+        case "hearts": // NUEVO
+          p.y = h + 10;
+          p.speedY = -(Math.random() * 3 + 1) * speed;
+          p.speedX = (Math.random() - 0.5) * speed;
+          p.size = Math.random() * 15 + 5;
+          p.color = `hsla(${340 + Math.random() * 30}, 80%, 60%, 0.8)`;
+          break;
+        case "confetti": // NUEVO
+          p.y = -10;
+          p.speedY = (Math.random() * 4 + 2) * speed;
+          p.speedX = (Math.random() - 0.5) * 4 * speed;
+          p.size = Math.random() * 6 + 3;
+          p.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+          p.rotation = Math.random() * 360;
+          break;
+        case "stars": // NUEVO
+          p.speedX = 0;
+          p.speedY = 0;
+          p.size = Math.random() * 3;
+          p.color = "white";
+          p.life = Math.random() * 100; // Para parpadeo
+          break;
+        case "energy": // NUEVO
+        case "magic":
+          p.x = w / 2;
+          p.y = h / 2; // Desde el centro
+          const angle = Math.random() * Math.PI * 2;
+          const vel = Math.random() * 5 * speed;
+          p.speedX = Math.cos(angle) * vel;
+          p.speedY = Math.sin(angle) * vel;
+          p.size = Math.random() * 4 + 1;
+          p.color = getColor(100, 70);
+          break;
+        case "smoke": // NUEVO
+          p.y = h + 10;
+          p.speedY = -(Math.random() * 1 + 0.5) * speed;
+          p.speedX = (Math.random() - 0.5) * speed;
+          p.size = Math.random() * 20 + 10;
+          p.color = `hsla(0, 0%, 80%, 0.1)`;
+          break;
+        case "aurora": // NUEVO
+        case "nebula":
+          p.speedX = (Math.random() - 0.5) * 0.5 * speed;
+          p.speedY = (Math.random() - 0.5) * 0.5 * speed;
+          p.size = Math.random() * 50 + 20;
+          p.color = `hsla(${
+            this.baseHue + Math.random() * 50
+          }, 70%, 50%, 0.05)`;
+          break;
+        case "glitter": // NUEVO
+          p.speedX = 0;
+          p.speedY = 0;
+          p.size = Math.random() * 4;
+          p.color = `hsl(50, 100%, 80%)`; // Dorado
+          p.life = Math.random() * 100;
+          break;
+
+        default: // FALLBACK
           p.speedY = speed;
           p.size = 3;
           p.color = getColor(100, 50);
@@ -173,13 +226,25 @@
     }
 
     updateParticle(p, canvas, speed) {
-      if (p.effect === "snow") p.x += Math.sin(p.wobble) * 0.5;
+      // Lógica de movimiento específica
+      if (p.effect === "snow" || p.effect === "leaves") {
+        p.x += Math.sin(p.wobble || 0) * 0.5;
+        if (p.wobble) p.wobble += 0.05;
+      }
+      if (p.effect === "stars" || p.effect === "glitter") {
+        p.life -= 1; // Solo parpadeo
+        if (p.life < 0) p.life = 100; // Loop vida
+        return;
+      }
+
       p.x += p.speedX || 0;
       p.y += p.speedY || 0;
+      if (p.rotation) p.rotation += 0.1;
       p.life -= 0.5;
     }
 
     checkReset(p, canvas) {
+      if (p.effect === "stars" || p.effect === "glitter") return false; // No se mueven
       return (
         p.life <= 0 ||
         p.y > canvas.height + 50 ||
@@ -191,11 +256,32 @@
 
     drawParticle(ctx, p) {
       ctx.save();
+
+      // Manejo de opacidad para estrellas/glitter
+      if (p.effect === "stars" || p.effect === "glitter") {
+        ctx.globalAlpha = Math.abs(Math.sin(p.life * 0.1));
+      } else {
+        ctx.globalAlpha = p.life / 100;
+      }
+
       ctx.fillStyle = p.color;
-      ctx.globalAlpha = p.life / 100;
+      ctx.translate(p.x, p.y);
+      if (p.rotation) ctx.rotate(p.rotation);
+
       ctx.beginPath();
-      if (p.effect === "rain") ctx.rect(p.x, p.y, 1, p.size * 5);
-      else ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      if (p.effect === "rain") {
+        ctx.rect(0, 0, 1, p.size * 5);
+      } else if (p.effect === "leaves" || p.effect === "confetti") {
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      } else if (p.effect === "hearts") {
+        const s = p.size / 2;
+        ctx.moveTo(0, 0);
+        ctx.arc(-s, -s, s, Math.PI, 0);
+        ctx.arc(s, -s, s, Math.PI, 0);
+        ctx.lineTo(0, s * 2);
+      } else {
+        ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+      }
       ctx.fill();
       ctx.restore();
     }
